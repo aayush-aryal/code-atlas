@@ -3,7 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/aayush-aryal/code-atlas/internal/parser"
+	"github.com/aayush-aryal/code-atlas/internal/scanner"
 )
 
 type resp struct{
@@ -40,7 +44,33 @@ func health(w http.ResponseWriter, req *http.Request){
 
 
 func main(){
-	files,err:=scanner.ScanDirectory()
+	files,err:=scanner.ScanDirectory(".")
+	if err!=nil{
+		log.Fatal(err)
+	}
+	fmt.Println(files)
+	for _,value:=range files{
+		metadata,err:=scanner.ExtractMetaData(value)
+
+		if err!=nil{
+			fmt.Println("Iono")
+		}
+		file_data,err:=scanner.ReadFile(value)
+		if err!=nil{
+			fmt.Println("Iono")
+		}
+		// use this to print root
+		root_node,err:=parser.ParseFile(file_data)
+		if err!=nil{
+			fmt.Println("How do i fix a billion errors")
+		}
+		names,err:=parser.ExtractFunctionNames(root_node,file_data)
+		if err!=nil{
+			fmt.Println("Error")
+		}
+		fmt.Println(names)
+		fmt.Println(metadata)
+	}
 	http.HandleFunc("/hello",hello)
 	http.HandleFunc("/headers",headers)
 	http.HandleFunc("/health",health)
