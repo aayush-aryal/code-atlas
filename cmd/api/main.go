@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/aayush-aryal/code-atlas/internal/ai"
 	"github.com/aayush-aryal/code-atlas/internal/codebase"
 	"github.com/aayush-aryal/code-atlas/internal/scanner"
 )
@@ -16,6 +17,10 @@ type resp struct{
 	Message string 
 } 
 
+type AskRequest struct{
+	Question string `json:"question"`
+	Function string `json:"function"`
+}
 
 
 func hello(w http.ResponseWriter, req *http.Request){
@@ -66,6 +71,7 @@ func main(){
 	http.HandleFunc("/file",handleFileContent)
 	http.HandleFunc("/codebase_analyze",handleAnalyze)
 	http.HandleFunc("/context", handleGetContext)
+	http.HandleFunc("/ask", handleAsk)
 	http.ListenAndServe(":8090",nil)
 }
 
@@ -73,7 +79,7 @@ func main(){
 func handleAnalyze(w http.ResponseWriter, req *http.Request){
 	w.Header().Set("Access-Control-Allow-Origin","*")
 	w.Header().Set("Content-Type","application/json")
-
+	
 	if err:=json.NewEncoder(w).Encode(currentProject);err!=nil{
 		http.Error(w,"Failed to encode JSON", http.StatusInternalServerError)
 
@@ -126,4 +132,55 @@ func handleGetContext(w http.ResponseWriter, req *http.Request){
 	}
 	w.Header().Set("Content-Type", "text/plain")
     w.Write([]byte(context))
+}
+
+func handleAsk(w http.ResponseWriter, req *http.Request){
+	w.Header().Set("Access-Control-Allow-Origin","*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+    w.Header().Set("Content-Type", "application/json")
+
+	if req.Method == "OPTIONS" {
+        return
+    }
+
+	reqBody:=req.Body
+	if reqBody==nil{
+		http.Error(w,"Invalid request",http.StatusBadRequest)
+	}
+	var r AskRequest
+	if err:=json.NewDecoder(req.Body).Decode(&r);err!=nil{
+		http.Error(w,"invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	if currentProject==nil{
+		http.Error(w,"Invalid request", http.StatusServiceUnavailable)
+		return
+	}
+	context,err:=currentProject.GetContext(r.Function,2)
+	if err!=nil{
+		http.Error(w,"Could not find the funcition", http.StatusBadRequest)
+		return
+	}
+	systemPrompt := fmt.Sprintf(`
+	You are an expert Senior Go Engineer. 
+	Answer the user's question based ONLY on the code context provided below.
+
+	--- BEGIN CODE CONTEXT ---
+	%s
+	--- END CODE CONTEXT ---
+
+	Question: %s
+	`, context, r.Question)
+	answer,err:=ai.Ask(systemPrompt)
+	if err!=nil{
+		http.Error(w,"Ollama Error"+err.Error(), http.StatusInternalServerError)
+		return 
+	}
+
+	response:=map[string]string{
+		"answer":answer,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
