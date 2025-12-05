@@ -64,7 +64,7 @@ func (p*Project) RecursiveContext(funcName string, currDepth int,maxDepth int, v
 		return nil
 	}
 	targetFunc:=refs[0]
-	code,err:=readFunction(targetFunc)
+	code,err:=ReadFunction(targetFunc)
 	if err!=nil{
 		return  fmt.Errorf("failed to read %s: %v",funcName,err)
 	}
@@ -95,7 +95,7 @@ func (p*Project) RecursiveContext(funcName string, currDepth int,maxDepth int, v
 	return nil
 }
 
-func readFunction(ref FunctionRef)(string,error){
+func ReadFunction(ref FunctionRef)(string,error){
 	content,err:=scanner.ReadFile(ref.Path)
 	if err!=nil{return "",err}
 	lines:=strings.Split(string(content),"\n")
@@ -104,3 +104,5 @@ func readFunction(ref FunctionRef)(string,error){
 	}
 	return strings.Join(lines[ref.StartLine:ref.EndLine+1],"\n"),nil
 }
+
+

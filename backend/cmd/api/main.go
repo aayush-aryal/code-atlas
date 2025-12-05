@@ -72,6 +72,8 @@ func main(){
 	http.HandleFunc("/codebase_analyze",handleAnalyze)
 	http.HandleFunc("/context", handleGetContext)
 	http.HandleFunc("/ask", handleAsk)
+	http.HandleFunc("/visual",handleGetGraph)
+	http.HandleFunc("/func", handleGetFunc)
 	http.ListenAndServe(":8090",nil)
 }
 
@@ -183,4 +185,33 @@ func handleAsk(w http.ResponseWriter, req *http.Request){
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func handleGetGraph(w http.ResponseWriter, req *http.Request){
+	w.Header().Set("Access-Control-Allow-Origin","*")
+	w.Header().Set("Content-Type", "application/json")
+	if currentProject==nil{
+		http.Error(w,"No project", http.StatusServiceUnavailable)
+	}
+	visualGraph:=currentProject.ComputeVisualGraph();
+	if err:=json.NewEncoder(w).Encode(visualGraph);err!=nil{
+		http.Error(w,"Something went wrong",http.StatusInternalServerError)
+	}
+}
+
+func handleGetFunc(w http.ResponseWriter, req *http.Request){
+	w.Header().Set("Content-Type","text/plain")
+	if currentProject==nil{
+		http.Error(w,"No project", http.StatusServiceUnavailable)
+	}
+	funcName:=req.URL.Query().Get("functionName")
+	funcPath:=currentProject.FunctionTable[funcName]
+	if (len(funcPath)>0){
+		funcText,err:=codebase.ReadFunction(funcPath[0])
+	if err!=nil{
+		http.Error(w,"Could not find the function",http.StatusNotFound)
+	}
+	fmt.Fprint(w,funcText)
+	}
+	
 }
